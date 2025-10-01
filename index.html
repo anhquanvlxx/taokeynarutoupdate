@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>NARUTO ADMIN - KEY GENERATOR V4 (COMPLETE)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        body { font-family: 'Orbitron', sans-serif; background: #0a0a0a; color: #fff; }
+        .admin-panel { 
+            background: #1a1a1a; 
+            border: 2px solid #ffaa00; 
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.5); 
+        }
+        .input-style { 
+            background: #2a2a2a; 
+            border: 1px solid #ff3333; 
+            color: #ffaa00; 
+            text-transform: uppercase;
+        }
+        .action-button { 
+            background: #ff3333; 
+            transition: background 0.3s; 
+            font-weight: 700;
+        }
+        .action-button:hover { background: #cc0000; }
+        .key-item {
+             border-left: 5px solid #ffaa00;
+             background: #222;
+             padding: 8px;
+             border-radius: 4px;
+             font-size: 0.9rem;
+             display: flex;
+             justify-content: space-between;
+             align-items: center;
+        }
+        .delete-btn {
+             background: none;
+             color: #ff3333;
+             border: none;
+             padding: 4px 8px;
+             border-radius: 4px;
+             cursor: pointer;
+             transition: color 0.2s;
+        }
+        .delete-btn:hover {
+             color: #cc0000;
+             transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="admin-panel w-full max-w-md p-6 rounded-lg space-y-6">
+        <h1 class="text-2xl font-bold text-center text-red-400 border-b pb-2 border-red-900">
+            <i class="fas fa-user-shield mr-2"></i> NARUTO ADMIN CONSOLE
+        </h1>
+
+        <div class="space-y-4">
+            <h2 class="text-lg font-bold text-yellow-500 border-b border-yellow-800 pb-1">TẠO KEY MỚI</h2>
+            
+            <div>
+                <label for="new-key-input" class="block text-sm font-medium mb-1 text-red-300">KEY TỰ CHỌN (Tùy chọn)</label>
+                <input type="text" id="new-key-input" class="input-style w-full p-2 rounded-md" placeholder="Để trống để TỰ ĐỘNG tạo Key ngẫu nhiên">
+            </div>
+
+            <div class="flex space-x-4">
+                 <div class="flex-1">
+                     <label for="key-duration" class="block text-sm font-medium mb-1 text-red-300">HẠN DÙNG</label>
+                     <select id="key-duration" class="input-style w-full p-2 rounded-md">
+                         <option value="1">1 NGÀY</option>
+                         <option value="7">7 NGÀY</option>
+                         <option value="30">30 NGÀY</option>
+                         <option value="infinity">VĨNH VIỄN</option>
+                     </select>
+                 </div>
+                 <div class="flex-1">
+                      <label for="max-devices-input" class="block text-sm font-medium mb-1 text-red-300">MAX THIẾT BỊ</label>
+                      <input type="number" id="max-devices-input" class="input-style w-full p-2 rounded-md" value="1" min="1">
+                 </div>
+            </div>
+            
+            <button id="generate-key-button" class="action-button w-full py-3 rounded-md font-bold">
+                <i class="fas fa-plus-circle mr-2"></i> TẠO & LƯU KEY
+            </button>
+        </div>
+
+        <hr class="border-red-900">
+
+        <div class="space-y-3">
+            <h3 class="text-lg font-bold text-yellow-500 border-b border-yellow-800 pb-1">DANH SÁCH KEY HOẠT ĐỘNG (<span id="key-count">0</span>)</h3>
+            <div id="active-keys-list" class="max-h-60 overflow-y-auto space-y-2 p-1">
+                <p class="text-center text-gray-500 italic">Đang tải...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // === CẤU HÌNH FIREBASE CỦA BẠN (BẠN PHẢI THAY THẾ CHỖ NÀY) ===
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKGCVdZxmyw6VN0b7aYRQnCqpqfWwASXU",
+            authDomain: "lllllk-20ede.firebaseapp.com",
+            databaseURL: "https://lllllk-20ede-default-rtdb.firebaseio.com",
+            projectId: "lllllk-20ede",
+            storageBucket: "lllllk-20ede.firebasestorage.app",
+            messagingSenderId: "314220235218",
+            appId: "1:314220235218:web:679c9a246c314b535f200b",
+            measurementId: "G-DM08514Z1N"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const validKeysRef = database.ref('validKeys'); 
+        
+        // --- HÀM HỖ TRỢ CHUNG ---
+        const showAdminNotification = (title, message, icon) => {
+            Swal.fire({ title, html: message, icon, toast: true, position: 'top-end', showConfirmButton: false, timer: 4000 });
+        };
+
+        const generateRandomKey = () => {
+             const prefix = 'NARU';
+             const randomPart = Math.random().toString(36).substr(2, 6).toUpperCase();
+             return prefix + '-' + randomPart;
+        };
+
+        function formatExpiry(timestamp) {
+            if (timestamp === 9999999999999) {
+                return '<span class="text-green-400 font-bold">VĨNH VIỄN</span>';
+            }
+            const date = new Date(timestamp);
+            const now = Date.now();
+            if (timestamp < now) {
+                 return '<span class="text-red-500 font-bold">ĐÃ HẾT HẠN</span>';
+            }
+            const diffDays = Math.ceil((timestamp - now) / (1000 * 60 * 60 * 24));
+            return `<span class="text-yellow-400">${date.toLocaleDateString()}</span> (Còn ${diffDays} ngày)`;
+        }
+        
+        // ===============================================
+        // === HÀM XÓA KEY TỪ FIREBASE (MỚI) ===
+        // ===============================================
+        window.deleteKey = function(keyId) {
+            Swal.fire({
+                title: 'Xác nhận xóa Key?',
+                text: `Bạn có chắc chắn muốn xóa Key "${keyId}" không? Key này sẽ không thể sử dụng được nữa.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Xóa Key',
+                cancelButtonText: 'Hủy'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    validKeysRef.child(keyId).remove()
+                        .then(() => {
+                            showAdminNotification('✅ Xóa Thành Công', `Key **${keyId}** đã bị xóa khỏi hệ thống.`, 'success');
+                            loadActiveKeys(); // Tải lại danh sách sau khi xóa
+                        })
+                        .catch(error => {
+                            showAdminNotification('❌ Lỗi Xóa Key', `Không thể xóa Key. Lỗi: ${error.message}`, 'error');
+                            console.error("Lỗi xóa Key:", error);
+                        });
+                }
+            });
+        };
+
+        // ===============================================
+        // === HÀM TẢI VÀ HIỂN THỊ DANH SÁCH KEY ===
+        // ===============================================
+        function loadActiveKeys() {
+            const keyListElement = document.getElementById('active-keys-list');
+            keyListElement.innerHTML = '<p class="text-center text-gray-500 italic">Đang tải...</p>';
+            
+            validKeysRef.once('value')
+                .then(snapshot => {
+                    const keys = snapshot.val();
+                    keyListElement.innerHTML = ''; 
+                    let keyCount = 0;
+                    
+                    if (!keys) {
+                        keyListElement.innerHTML = '<p class="text-center text-gray-500 italic">Chưa có Key nào được tạo.</p>';
+                        document.getElementById('key-count').textContent = 0;
+                        return;
+                    }
+
+                    // Duyệt qua tất cả Keys
+                    Object.keys(keys).forEach(keyId => {
+                        const keyData = keys[keyId];
+                        keyCount++;
+                        
+                        const expiryDisplay = formatExpiry(keyData.expiry);
+                        const deviceCount = Object.keys(keyData.devices || {}).length;
+                        
+                        const keyHtml = `
+                            <div class="key-item">
+                                <div>
+                                    <div class="font-bold text-white">${keyId}</div>
+                                    <p class="text-xs text-gray-400">Hạn: ${expiryDisplay}</p>
+                                    <p class="text-xs text-gray-400">Thiết bị: ${deviceCount}/${keyData.max_devices || 1}</p>
+                                </div>
+                                <button class="delete-btn" onclick="deleteKey('${keyId}')">
+                                    <i class="fas fa-trash-alt text-lg"></i>
+                                </button>
+                            </div>
+                        `;
+                        keyListElement.innerHTML += keyHtml;
+                    });
+                    
+                    document.getElementById('key-count').textContent = keyCount;
+                })
+                .catch(error => {
+                    console.error("Lỗi tải Key:", error);
+                    keyListElement.innerHTML = '<p class="text-center text-red-500 italic">LỖI: Không thể tải Key từ Firebase.</p>';
+                });
+        }
+
+
+        // ===============================================
+        // === HÀM TẠO VÀ LƯU KEY MỚI ===
+        // ===============================================
+        function generateAndSaveKey() {
+            document.getElementById('generate-key-button').disabled = true;
+
+            let newKey = document.getElementById('new-key-input').value.trim().toUpperCase();
+            if (newKey.length < 5) {
+                 newKey = generateRandomKey(); 
+            }
+
+            const duration = document.getElementById('key-duration').value; 
+            const maxDevices = parseInt(document.getElementById('max-devices-input').value) || 1;
+            
+            let expiryTimestamp;
+            if (duration === 'infinity') {
+                expiryTimestamp = 9999999999999; 
+            } else {
+                const days = parseInt(duration);
+                expiryTimestamp = Date.now() + (days * 24 * 60 * 60 * 1000);
+            }
+            
+            const keyData = {
+                expiry: expiryTimestamp,
+                created_at: Date.now(),
+                last_used: 0,
+                max_devices: maxDevices,
+                devices: {},
+                status: 'active'
+            };
+
+            validKeysRef.child(newKey).once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        showAdminNotification('Lỗi', `Key **${newKey}** đã tồn tại. Vui lòng chọn Key khác hoặc thử lại.`, 'warning');
+                        return;
+                    }
+
+                    return validKeysRef.child(newKey).set(keyData)
+                        .then(() => {
+                            showAdminNotification('Thành Công', `Key **${newKey}** (Hạn: ${duration === 'infinity' ? 'VĨNH VIỄN' : duration + ' ngày'}) đã được tạo thành công!`, 'success');
+                            
+                            document.getElementById('new-key-input').value = ''; 
+                            loadActiveKeys(); 
+                        });
+                })
+                .catch((error) => {
+                    console.error("Lỗi khi tạo Key:", error);
+                    showAdminNotification('Lỗi Firebase', 'Không thể tạo Key. Vui lòng kiểm tra console.', 'error');
+                })
+                .finally(() => {
+                    document.getElementById('generate-key-button').disabled = false;
+                });
+        }
+        
+        // --- EVENT LISTENERS & KHỞI ĐỘNG ---
+        document.getElementById('generate-key-button').addEventListener('click', generateAndSaveKey);
+        
+        // Tải Key khi trang vừa load
+        document.addEventListener('DOMContentLoaded', loadActiveKeys);
+    </script>
+</body>
+              </html>
